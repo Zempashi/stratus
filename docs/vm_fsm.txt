@@ -13,12 +13,12 @@ digraph VM_state_machine {
     STARTED -> VANISHED [ label = "Vanished during HKVM Listing" ];
     STOPPED -> VANISHED [ label = "Vanished during HKVM Listing" ];
     TO_DELETE -> TO_DELETE [ label = "HTTP DELETE" ];
-#    STARTED -> TO_STOP [ label = "HTTP PUT (stop)" ];
-#    STOPPED -> TO_START [ label = "HTTP PUT (start)" ];
-#    TO_STOP -> TO_STOP [ label = "HTTP PUT (stop)" ];
-#    TO_START -> TO_START [ label = "HTTP PUT (start)" ];
-#    TO_START -> STARTED [ label = "Ansible Worker" ];
-#    TO_STOP -> STOPPED [ label = "Ansible Worker" ];
+    STARTED -> TO_STOP [ label = "HTTP PUT (stop)" ];
+    STOPPED -> TO_START [ label = "HTTP PUT (start)" ];
+    TO_STOP -> TO_STOP [ label = "HTTP PUT (stop)" ];
+    TO_START -> TO_START [ label = "HTTP PUT (start)" ];
+    TO_START -> STARTED [ label = "Ansible Worker" ];
+    TO_STOP -> STOPPED [ label = "Ansible Worker" ];
     DELETED -> PENDING [ label = "HTTP PUT (restore)" ];
 
     { rank=same; STARTED STOPPED }
