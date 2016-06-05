@@ -2,21 +2,41 @@ from rest_framework import serializers
 from .models import VM, VM_STATUS_ENUM
 from .models import HKVM, HKVM_STATUS_ENUM
 
-class VMSerializer(serializers.ModelSerializer):
+class VMSerializer(serializers.HyperlinkedModelSerializer):
+
+    status = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = VM
+        fields = ('id', 'name', 'hkvm', 'args', 'status', 'url')
+        extra_kwargs = {
+            'hkvm':  {'view_name': 'hkvm-detail'}
+        }
+
+
+class VMDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     status = serializers.CharField(read_only=True)
     created = serializers.CharField(read_only=True)
 
     class Meta:
         model = VM
-        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created')
+        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url')
+        extra_kwargs = {
+            'hkvm':  {'view_name': 'hkvm-detail'}
+        }
 
+class HKVMSerializer(serializers.HyperlinkedModelSerializer):
 
-class HKVMSerialiser(serializers.ModelSerializer):
+    class Meta:
+        model = HKVM
+        fields = ('id', 'name', 'last_status', 'url')
 
-    status = serializers.CharField(read_only=True)
+class HKVMDetailSerializer(serializers.HyperlinkedModelSerializer):
+
+    last_status = serializers.CharField(read_only=True)
     created = serializers.CharField(read_only=True)
 
     class Meta:
-        model = VM
-        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created')
+        model = HKVM
+        fields = ('id', 'name', 'last_status', 'last_status_updated', 'created', 'vm_set', 'url')

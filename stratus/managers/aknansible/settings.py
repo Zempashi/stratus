@@ -1,4 +1,4 @@
 from django.conf import settings
 
 STRATUS_ANSIBLE_INVENTORY = getattr(settings, 'STRATUS_ANSIBLE_INVENTORY', None)
-
+STRATUS_ANSIBLE_HKVM_CACHE_TIME = getattr(settings, 'STRATUS_ANSIBLE_HKVM_CACHE_TIME', 300)

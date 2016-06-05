@@ -27,6 +27,33 @@ SECRET_KEY = 'v+h=r_mxh1%8o!!x6k-59^^ljzidqvjib%j*kfv8*67v-ohlh3'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+import os
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+        'stratus': {
+            'handlers': ['console'],
+            'level': 'DEBUG'
+        },
+        'stratus.AknAnsibleManager': {
+            'handlers': ['console'],
+            'level': 'DEBUG'
+        },
+
+    },
+}
+
 ALLOWED_HOSTS = []
 
 
@@ -42,6 +69,7 @@ INSTALLED_APPS = (
     'channels',
     'rest_framework',
     'stratus',
+    'stratus.managers.aknansible'
 )
 
 MIDDLEWARE_CLASSES = (

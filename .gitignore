@@ -1,5 +1,7 @@
 *.pyc
+*.sw[a-z]
 .ssh
 .bash_history
+.vim*
 db.sqlite3
 inventory.cfg
