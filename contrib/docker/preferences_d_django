@@ -1,0 +1,3 @@
+Package: python-django python-django-common
+Pin: release n=jessie-backports
+Pin-Priority: 700

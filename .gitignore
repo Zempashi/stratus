@@ -1,0 +1,5 @@
+*.pyc
+.ssh
+.bash_history
+db.sqlite3
+inventory.cfg
