@@ -48,12 +48,10 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate(self, data):
         data['name'], data['memory'], data['disk'] = \
-            self.parse_install_system(data['args'])
-        if data['hkvm'] is None:
-            data['status'] = 'PENDING'
+            self._parse_install_system(data['args'])
         return data
 
-    def parse_install_system(self, command_line):
+    def _parse_install_system(self, command_line):
         parser = argparse.ArgumentParser()
         parser.add_argument('-n', dest='name')
         parser.add_argument('-m', '--memory')
@@ -80,3 +78,14 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
         else:
             name = args.name
         return name, memory, total_disk
+
+
+class VMDetailSerializer(VMSerializer):
+
+    def __init__(self, *args, **kwargs):
+        super(VMSerializer, self).__init__(*args, **kwargs)
+
+        if self.instance and not self.instance.status == 'PENDING':
+            self.fields['args'].read_only = True
+            self.fields['hkvm'].read_only = True
+

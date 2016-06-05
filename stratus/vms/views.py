@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from .models import VM
-from .serializers import VMSerializer
+from .serializers import VMSerializer, VMDetailSerializer
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework import generics
@@ -15,8 +15,7 @@ except ImportError:
     from channels import Channel
 
 
-class VMList(mixins.ListModelMixin,
-             generics.GenericAPIView):
+class VMList(mixins.ListModelMixin, generics.GenericAPIView):
     """
     List all VM, or create a new one.
     """
@@ -36,14 +35,13 @@ class VMList(mixins.ListModelMixin,
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VMDetail(mixins.RetrieveModelMixin,
-               generics.GenericAPIView):
+class VMDetail(mixins.RetrieveModelMixin, generics.GenericAPIView):
     """
     Retrieve, update or delete a snippet instance.
     """
 
     queryset = VM.objects.all()
-    serializer_class = VMSerializer
+    serializer_class = VMDetailSerializer
 
     def _get_object(self, pk):
         try:
@@ -69,4 +67,3 @@ class VMDetail(mixins.RetrieveModelMixin,
         if vm.status == 'TO_DELETE':
             Channel('create-vms').send(dict())
         return Response(status=status.HTTP_204_NO_CONTENT)
-
