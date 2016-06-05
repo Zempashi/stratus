@@ -30,12 +30,8 @@ class VMList(mixins.ListModelMixin,
     def post(self, request, format=None):
         serializer = VMSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            if serializer.validated_data['name'] and serializer.validated_data['hkvm']:
-                vm = serializer.save(status='TO_CREATE')
-            else:
-                vm = serializer.save(status='INCOMPLETE')
+            vm = serializer.save(status='PENDING')
             Channel('create-vms').send(dict())
-            vm.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

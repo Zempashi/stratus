@@ -21,7 +21,7 @@ class HKVMAllocator(object):
     def allocate(self, vms=None, hkvms=None):
         if vms is None:
             try:
-                vms = VM.objects.filter(status=u'INCOMPLETE')
+                vms = VM.objects.filter(status=u'PENDING')
             except VM.DoesNotExist:
                 return
         if hkvms is None:
@@ -29,8 +29,6 @@ class HKVMAllocator(object):
                 hkvms = self.HKVMClass.objects.filter(virtual=False)
             except HKVM.DoesNotExist:
                 return
-        print(vms)
-        print(hkvms)
         for vm in vms:
             vm_mem = 4096
             vm_disk = 10240
@@ -44,6 +42,7 @@ class HKVMAllocator(object):
                 hkvm.hkvmansiblestatus.memory -= vm_mem
                 hkvm.hkvmansiblestatus.disk -= vm_disk
                 vm.hkvm = hkvm
+                vm.status = 'TO_CREATE'
                 self.logger.info('\'{}\' goes to \'{}\''.format(vm, hkvm))
                 vm.save()
 
