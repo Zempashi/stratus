@@ -1,9 +1,12 @@
+
+from __future__ import absolute_import
+
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 
-from views_vm import VMList, VMDetail
-from views_hkvm import HKVMList, HKVMDetail
+from .vms.views import VMList, VMDetail
+from .hkvms.views import HKVMList, HKVMDetail
 
 @api_view(['GET'])
 def api_root(request, version):

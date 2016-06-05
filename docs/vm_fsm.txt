@@ -1,0 +1,25 @@
+digraph VM_state_machine {
+    rankdir=LR;
+    size="8,5"
+    node [shape = oval];
+    PENDING -> TO_CREATE [ label = "Allocator (+ verify vm rules)" ];
+    TO_CREATE -> STOPPED [ label = "Ansible Worker" ];
+    STOPPED -> STARTED [ label = "HKVM List" ];
+    STARTED -> STOPPED [ label = "HKVM List" ];
+    TO_CREATE -> TO_DELETE [ label = "HTTP DELETE" ];
+    STARTED -> TO_DELETE [ label = "HTTP DELETE" ];
+    STOPPED -> TO_DELETE [ label = "HTTP DELETE" ];
+    TO_DELETE -> DELETED [ label = "Ansible Worker" ];
+    STARTED -> VANISHED [ label = "Vanished during HKVM Listing" ];
+    STOPPED -> VANISHED [ label = "Vanished during HKVM Listing" ];
+    TO_DELETE -> TO_DELETE [ label = "HTTP DELETE" ];
+#    STARTED -> TO_STOP [ label = "HTTP PUT (stop)" ];
+#    STOPPED -> TO_START [ label = "HTTP PUT (start)" ];
+#    TO_STOP -> TO_STOP [ label = "HTTP PUT (stop)" ];
+#    TO_START -> TO_START [ label = "HTTP PUT (start)" ];
+#    TO_START -> STARTED [ label = "Ansible Worker" ];
+#    TO_STOP -> STOPPED [ label = "Ansible Worker" ];
+    DELETED -> PENDING [ label = "HTTP PUT (restore)" ];
+
+    { rank=same; STARTED STOPPED }
+}

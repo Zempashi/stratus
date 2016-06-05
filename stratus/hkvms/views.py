@@ -1,9 +1,8 @@
+
 from django.shortcuts import render
 
-# Create your views here.
-
 from .models import HKVM
-from .serializers import HKVMSerializer, HKVMDetailSerializer
+from .serializers import HKVMSerializer
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework import generics
@@ -16,6 +15,7 @@ try:
     from django.channels import Channel
 except ImportError:
     from channels import Channel
+
 
 class HKVMList(mixins.ListModelMixin,
              generics.GenericAPIView):
@@ -36,21 +36,18 @@ class HKVMList(mixins.ListModelMixin,
                 hkvm = serializer.save(status='INCOMPLETE')
             else:
                 hkvm = serializer.save(status='UNKNOWN')
-            #Channel('create-vm').send(dict(vm_pk=vm.pk))
-            #Channel('list-vm').send(dict(vm_pk=vm.pk))
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class HKVMDetail(mixins.RetrieveModelMixin,
-               generics.GenericAPIView):
+                generics.GenericAPIView):
     """
     Retrieve, update or delete a snippet instance.
     """
 
     queryset = HKVM.objects.all()
-    serializer_class = HKVMDetailSerializer
+    serializer_class = HKVMSerializer
 
     def _get_object(self, pk):
         try:
@@ -63,7 +60,7 @@ class HKVMDetail(mixins.RetrieveModelMixin,
 
     def put(self, request, pk, format=None):
         hkvm = self._get_object(pk)
-        serializer = HKVMDetailSerializer(hkvm, data=request.data, context={'request': request})
+        serializer = HKVMSerializer(hkvm, data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -73,3 +70,4 @@ class HKVMDetail(mixins.RetrieveModelMixin,
         hkvm = self._get_object(pk)
         hkvm.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+

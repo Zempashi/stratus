@@ -2,17 +2,24 @@
 from __future__ import unicode_literals
 
 from django.utils import six
+from django.utils.six.moves import filter
 
 import logging
 import pprint
 
+try:
+    from django.utils import timezone as datetime
+except ImportError:
+    from datetime import datetime
 
 from collections import namedtuple
-from ansible.parsing.dataloader import DataLoader
-from ansible.vars import VariableManager
-from ansible.inventory import Inventory
-from ansible.playbook.play import Play
-from ansible.executor.task_queue_manager import TaskQueueManager
+
+if six.PY2:
+    from ansible.parsing.dataloader import DataLoader
+    from ansible.vars import VariableManager
+    from ansible.inventory import Inventory
+    from ansible.playbook.play import Play
+    from ansible.executor.task_queue_manager import TaskQueueManager
 
 from django.db.models import Max
 
@@ -23,45 +30,65 @@ if not apps.is_installed('stratus.managers.aknansible'):
     raise ImproperlyConfigured(u'You must add \'%s\' in INSTALLED_APPS'
                                % '.'.join(__name__.split('.')[:-1]))
 
-stratus_app = apps.get_app_config('stratus')
-VM = stratus_app.get_model('VM')
-HKVM = stratus_app.get_model('HKVM')
+from .models import VM, HKVM
+from .models import HKVMAnsibleStatus
 
-logger = logging.getLogger('stratus.AknAnsibleManager')
-
+from . import settings
 from .settings import STRATUS_ANSIBLE_INVENTORY
 
 class AknAnsibleManager(object):
 
     Options = namedtuple('Options', ['connection', 'module_path', 'forks', 'become', 'become_method', 'become_user', 'check'])
 
-    def __init__(self):
-       pass
+    def __init__(self,
+                cache_time=settings.STRATUS_ANSIBLE_HKVM_CACHE_TIME,
+                HKVMClass = HKVMAnsibleStatus):
+        self.cache_time = cache_time
+        self.logger = logging.getLogger('stratus.AknAnsibleManager')
+        self.HKVMClass = HKVMClass
 
     def create_vm(self):
         pass
 
-
     def hkvm_status(self, group=None, hkvm=None):
-        older_hkvm = HKVM.objects.all().aggregate(Max('last_status_updated'))
-        print(older_hkvm)
+        all_hkvm = self.HKVMClass.objects.all()
+        older_hkvm = all_hkvm.aggregate(Max('last_status_updated'))
         last_status = older_hkvm['last_status_updated__max']
-        if last_status is None or last_status is not None:
-            self.list_vm(group=group, hkvm=hkvm)
+        if last_status is not None:
+            delta = (datetime.now() - last_status).total_seconds()
+            self.logger.debug('HKVM info refresh have been done'
+                              ' %s seconds ago'% delta)
+        else:
+            self.logger.debug('No HKVM info. Force refresh')
+        if last_status is None or delta > self.cache_time:
+            self.hkvm_vm_and_ressources(group=group, hkvm=hkvm)
 
-    def list_vm(self, group=None, hkvm=None):
+    def hkvm_vm_and_ressources(self, group=None, hkvm=None):
         variables = self.list_vm_ansible()
         groups = self.format_groups(variables)
-        for hkvm in groups['hkvm']:
-            virsh_stdout = variables['hostvars'][hkvm]['hkvm_list_vm']['stdout_lines']
-            vm_list = self.parse_virsh_list_stdout(virsh_stdout)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(pprint.pformat((hkvm, vm_list)))
+        for hkvm_name in groups['hkvm']:
+            HKVMManager = self.HKVMClass.objects
             try:
-                hkvm = HKVM.objects.get(name=hkvm)
+                hkvm = HKVMManager.get(name=hkvm_name)
             except HKVM.DoesNotExist:
-                hkvm = HKVM.objects.create(name=hkvm, virtual=False)
+                hkvm = HKVMManager.create(name=hkvm_name, virtual=False)
+            ### VM List
+            hkvm_vars = variables['hostvars'][hkvm_name]
+            virsh_stdout = hkvm_vars['hkvm_list_vm']['stdout_lines']
+            vm_list = self.parse_virsh_list_stdout(virsh_stdout)
+            self.logger.debug(pprint.pformat((hkvm, vm_list)))
             hkvm.update_vms(**vm_list)
+            ### Memory update
+            hkvm.memory = hkvm_vars["ansible_memfree_mb"]
+            ### Disk update
+            vgdisplay_stdout = hkvm_vars['hkvm_free_space']['stdout_lines']
+            hkvm.disk = self.parse_vgdisplay_stdout(vgdisplay_stdout)
+            self.logger.debug('HKVM {hkvm} has {mem} MB RAM'
+                            ' and {disk} MB disk left'.format(hkvm=hkvm_name,
+                                                              mem=hkvm.memory,
+                                                              disk=hkvm.disk))
+            ### Update the status date for HKVM
+            hkvm.save()
 
     def list_vm_ansible(self):
         ansible_args = self.initialize_ansible(STRATUS_ANSIBLE_INVENTORY)
@@ -91,7 +118,8 @@ class AknAnsibleManager(object):
     def parse_virsh_list_stdout(self, virsh_stdout):
         res = dict(started_vm={}, stopped_vm={})
         for line in virsh_stdout:
-            tokens = [ t.strip() for t in line.strip().split(' ', 2) if t.strip() ]
+            tokens = ( t.strip() for t in line.strip().split(' ', 2) )
+            tokens = list(filter(None, tokens))
             if tokens == ['Id', 'Name', 'State']:
                 continue
             elif len(tokens) < 3:
@@ -103,8 +131,20 @@ class AknAnsibleManager(object):
                 elif status == 'shut off':
                     res['stopped_vm'][vm_name] = {}
                 else:
-                    raise ValueError('Unknown VM Status in virsh output: \'{}\''.format(status))
+                    raise ValueError('Unknown VM Status in virsh output:'
+                                    ' \'{}\''.format(status))
         return res
+
+    def parse_vgdisplay_stdout(self, vgdisplay_stdout):
+        for line in vgdisplay_stdout:
+            tokens = list(filter(None, line.split(' ')))
+            if not tokens[:4] == [u'Free', u'PE', u'/', u'Size']:
+                continue
+            else:
+                return int(float(tokens[6]))
+        else:
+            raise ValueError('Vgdisplay Free Space Token not Found')
+
 
     def format_groups(self, variables):
         groups = {}

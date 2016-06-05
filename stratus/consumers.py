@@ -1,6 +1,8 @@
 
+from __future__ import absolute_import, unicode_literals
+
 import logging
-from importlib import import_module
+from .import_class import import_cls
 
 from .models import VM
 from . import settings
@@ -13,8 +15,8 @@ class VMConsumer(object):
         self.logger = logging.getLogger(__name__)
         self.manager_module = manager_module
         self.allocator_module = allocator_module
-        self.MANAGER_CLS = self.import_cls(manager_module)
-        self.ALLOCATOR_CLS = self.import_cls(allocator_module)
+        self.MANAGER_CLS = import_cls(manager_module)
+        self.ALLOCATOR_CLS = import_cls(allocator_module)
         self.manager = self.MANAGER_CLS()
         self.allocator = self.ALLOCATOR_CLS()
 
@@ -35,13 +37,5 @@ class VMConsumer(object):
         except BaseException:
             # TODO: Mark VM as faulty
             pass
-
-    @staticmethod
-    def import_cls(class_spec):
-        try:
-            return import_module(class_spec)
-        except ImportError:
-            mod_name, _, cls_name = class_spec.rpartition('.')
-            return getattr(import_module(mod_name), cls_name)
 
 vm_consumer = VMConsumer()

@@ -1,9 +1,7 @@
 from django.shortcuts import render
 
-# Create your views here.
-
 from .models import VM
-from .serializers import VMSerializer, VMDetailSerializer
+from .serializers import VMSerializer
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework import generics
@@ -11,11 +9,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import renderers
 
-
 try:
     from django.channels import Channel
 except ImportError:
     from channels import Channel
+
 
 class VMList(mixins.ListModelMixin,
              generics.GenericAPIView):
@@ -32,11 +30,12 @@ class VMList(mixins.ListModelMixin,
     def post(self, request, format=None):
         serializer = VMSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            if not serializer.validated_data['name']:
-                vm = serializer.save(status='INCOMPLETE')
+            if serializer.validated_data['name'] and serializer.validated_data['hkvm']:
+                vm = serializer.save(status='TO_CREATE')
             else:
-                vm = serializer.save(status='UNKNOWN')
+                vm = serializer.save(status='INCOMPLETE')
             Channel('create-vms').send(dict())
+            vm.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -48,7 +47,7 @@ class VMDetail(mixins.RetrieveModelMixin,
     """
 
     queryset = VM.objects.all()
-    serializer_class = VMDetailSerializer
+    serializer_class = VMSerializer
 
     def _get_object(self, pk):
         try:
@@ -61,7 +60,7 @@ class VMDetail(mixins.RetrieveModelMixin,
 
     def put(self, request, pk, format=None):
         vm = self._get_object(pk)
-        serializer = VMDetailSerializer(vm, data=request.data, context={'request': request})
+        serializer = VMSerializer(vm, data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -71,3 +70,4 @@ class VMDetail(mixins.RetrieveModelMixin,
         vm = self._get_object(pk)
         vm.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
