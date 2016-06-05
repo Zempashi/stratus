@@ -123,6 +123,8 @@ CHANNEL_LAYERS = {
 
 STRATUS_ANSIBLE_INVENTORY = "inventory.cfg"
 
+STRATUS_ANSIBLE_HKVM_CACHE_TIME = 0
+
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
