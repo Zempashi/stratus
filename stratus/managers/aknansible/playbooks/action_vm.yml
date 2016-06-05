@@ -1,0 +1,46 @@
+- name: "Create/Delete/Start/Stop VMs"
+  hosts: "hkvm"
+  remote_user: 'root'
+  gather_facts: 'no'
+  tasks:
+    - name: "List all started VMs"
+      shell: virsh list |tail -n +3|awk '{print $2}'
+      changed_when: False
+      register: started_vm_stdout
+
+    - name: "List all stopped VMs"
+      shell: virsh list --inactive|tail -n +3|awk '{print $2}'
+      changed_when: False
+      register: stopped_vm_stdout
+
+    - name: "Compute facts (vm list)"
+      set_fact:
+        started_vm: '{{ started_vm_stdout.stdout_lines|default([]) }}'
+        stopped_vm: '{{ stopped_vm_stdout.stdout_lines|default([]) }}'
+        current_vm: >-
+            {{ started_vm_stdout.stdout_lines|default([])
+            |union(stopped_vm_stdout.stdout_lines|default([])) }}
+
+    - name: "Create VMs"
+      command: '{{(create_map|default)[inventory_hostname][item]}}'
+      with_items: >-
+          {{ ((create_map|default)[inventory_hostname]|default({})).keys()
+             |difference(current_vm) }}
+      register: create_vm_result
+      ignore_errors: True
+
+    - name: "Destroy VM before undefine"
+      command: virsh destroy {{item}}
+      with_items: >-
+          {{ ((remove_map|default)[inventory_hostname]|default({})).keys()
+             |intersect(started_vm) }}
+      register: destroy_vm_result
+      ignore_errors: True
+
+    - name: "Undefine VM"
+      command: virsh undefine --remove-all-storage {{item}}
+      with_items: >-
+          {{ ((remove_map|default)[inventory_hostname]|default({})).keys()
+            |intersect(current_vm) }}
+      register: undefine_vm_result
+      ignore_errors: True

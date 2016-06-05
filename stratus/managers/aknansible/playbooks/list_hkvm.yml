@@ -1,0 +1,14 @@
+- name: "List HKVM"
+  hosts: hkvm
+  remote_user: 'root'
+  gather_facts: True
+  tasks:
+    - name: "List vm in libvirt"
+      command: virsh list --all
+      changed_when: False
+      register: hkvm_list_vm
+
+    - name: "Get free space in LVM volume"
+      command: vgdisplay vg --units M
+      changed_when: False
+      register: hkvm_free_space

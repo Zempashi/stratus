@@ -1,6 +1,7 @@
 
 from __future__ import unicode_literals
 
+import os
 import logging
 import pprint
 import json
@@ -28,7 +29,7 @@ except ImportError:
     if six.PY3:
         raise ValueError('Ansible is not compatible with python 3')
     else:
-        raise ValueError('Please install Ansible')
+        raise
 
 if not apps.is_installed('stratus.managers.aknansible'):
     raise ImproperlyConfigured(u'You must add \'%s\' in INSTALLED_APPS'
@@ -36,10 +37,6 @@ if not apps.is_installed('stratus.managers.aknansible'):
 
 
 class AknAnsibleManager(object):
-
-    Options = namedtuple('Options',
-                         ['connection', 'module_path', 'forks', 'become_user',
-                          'become', 'become_method', 'check', 'extra_vars'])
 
     def __init__(self,
                  cache_time=settings.STRATUS_ANSIBLE_HKVM_CACHE_TIME,
@@ -49,28 +46,13 @@ class AknAnsibleManager(object):
         self.HKVMClass = HKVMClass
 
     def create_vm(self):
-        mapping_create = {}
+        action_dict = ad = {'create': {}, 'remove': {}}
         for hkvm in HKVM.objects.all():
-            vms = VM.objects.filter(hkvm=hkvm, status='TO_CREATE')
-            mapping_create[hkvm.name] = dict((vm.name, vm.args) for vm in vms)
-        print(mapping_create)
-        vars_ = self._action_vm_ansible(mapping_create=mapping_create)
-        for hkvm_name in self._format_groups(vars_)['hkvm']:
-            # Parse creation
-            all_res = vars_['hostvars'][hkvm_name]['create_vm_result']
-            vms_dict = dict((res['item'], res) for res in all_res['results'])
-            vms_created = VM.objects.filter(hkvm__name=hkvm_name,
-                                            name__in=vms_dict.keys())
-            for vm in vms_created:
-                res = vms_dict[vm.name]
-                print(res)
-                if not res.get('failed') and not res.get('skipped'):
-                    vm.status = 'STOPPED'
-                elif res.get('skipped'):
-                    vm.error = 'Has been skipped ??? why ??'
-                else:
-                    vm.error = res['msg']
-                vm.save()
+            ad['create'][hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_CREATE')
+            ad['remove'][hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_DELETE')
+
+        vars_ = self._action_vm_ansible(action_dict)
+        self._parse_action_results(vars_, action_dict)
 
     def hkvm_status(self, group=None, hkvm=None):
         all_hkvm = self.HKVMClass.objects.all()
@@ -105,7 +87,7 @@ class AknAnsibleManager(object):
             # Disk update
             vgdisplay_stdout = hkvm_vars['hkvm_free_space']['stdout_lines']
             hkvm.disk = self._parse_vgdisplay_stdout(vgdisplay_stdout)
-            self.logger.debug('HKVM {hkvm} has {mem} MB RAM and'
+            self.logger.debug('HKVM {hkvm} has {mem} MB RAM and '
                               '{disk} MB disk left'.format(hkvm=hkvm_name,
                                                            mem=hkvm.memory,
                                                            disk=hkvm.disk))
@@ -114,46 +96,62 @@ class AknAnsibleManager(object):
 
     def _list_vm_ansible(self):
         ah = AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
-        play_src = dict(
-            name="List HKVM",
-            hosts='hkvm',
-            remote_user='root',
-            gather_facts='yes',
-            tasks=[
-                dict(action=dict(module='command',
-                                 args='virsh list --all'),
-                     register='hkvm_list_vm'),
-                dict(action=dict(module='command',
-                                 args='vgdisplay vg --units M'),
-                     register='hkvm_free_space')])
-        return ah.run_play(play_src)
+        module_basedir = os.path.dirname(__file__)
+        pb_file = os.path.join(module_basedir, 'playbooks', 'list_hkvm.yml')
+        return ah.run_playbook(pb_file)
 
-    def _action_vm_ansible(self, mapping_create):
+    def _action_vm_ansible(self, action_dict):
         ah = AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
-        play_src = dict(
-            name='Create/Delete/Start/Stop VMs',
-            hosts='hkvm',
-            remote_user='root',
-            gather_facts='no',
-            tasks=[
-                dict(action=dict(module='shell',
-                                 args='virsh list --all'
-                                      '|tail -n +3|awk \'{print $2}\''),
-                     register='current_vm'),
-                dict(action=dict(module='command',
-                                 args='{{(mapping_create|default)'
-                                      '[inventory_hostname][item]}}'),
-                     with_items='{{ ((mapping_create|default)'
-                                '[inventory_hostname]|default([]))'
-                                '|difference(current_vm.stdout_lines'
-                                '|default([])) }}',
-                     register='create_vm_result'),
-            ]
-        )
+        action_map = {}
+        for action in ['create', 'remove']:
+            action_map[action + '_map'] = map_ = {}
+            for hkvm, vm_list in six.iteritems(action_dict[action]):
+                map_[hkvm.name] = dict((v.name, v.args) for v in vm_list)
 
-        extra_vars = json.dumps(dict(mapping_create=mapping_create))
-        ah.options_args['extra_vars'] = [extra_vars]
-        return ah.run_play(play_src)
+        ah.options_args['extra_vars'] = [json.dumps(action_map)]
+        # ah.options_args['check'] = True
+        module_basedir = os.path.dirname(__file__)
+        pb_file = os.path.join(module_basedir, 'playbooks', 'action_vm.yml')
+        return ah.run_playbook(pb_file)
+
+    def _parse_action_results(self, vars_, action_dict):
+        self._parse_create_results(vars_, action_dict['create'])
+        self._parse_remove_results(vars_, action_dict['remove'])
+
+    def _parse_create_results(self, vars_, action_create):
+        for hkvm, vm_list in six.iteritems(action_create):
+            create_res = vars_['hostvars'][hkvm.name]['create_vm_result']
+            res_dict = dict((r['item'], r) for r in create_res['results'])
+            for vm in vm_list:
+                res = res_dict.get(vm.name)
+                if not res or (not res.get('failed') and not res.get('skipped')):
+                    vm.status = 'STOPPED'
+                    vm.error = ''
+                    self.logger.info('Successfully create %s'%vm)
+                elif res.get('failed'):
+                    try:
+                        vm.error = res['stdout']
+                    except KeyError:
+                        vm.error = res['msg']
+                vm.save()
+
+    def _parse_remove_results(self, vars_, action_remove):
+        for hkvm, vm_list in six.iteritems(action_remove):
+            undefine_res = vars_['hostvars'][hkvm.name]['undefine_vm_result']
+            destroy_res = vars_['hostvars'][hkvm.name]['destroy_vm_result']
+            res_dict = dict((r['item'], r) for r in undefine_res['results'])
+            for vm in vm_list:
+                res = res_dict.get(vm.name)
+                if not res or (not res.get('failed') and not res.get('skipped')):
+                    vm.status = 'DELETED'
+                    vm.error = ''
+                    self.logger.info('Successfully delete %s'%vm)
+                elif res.get('failed'):
+                    try:
+                        vm.error = res['stdout']
+                    except KeyError:
+                        vm.error = res['msg']
+                vm.save()
 
     def _parse_virsh_list_stdout(self, virsh_stdout):
         res = dict(started_vm={}, stopped_vm={})

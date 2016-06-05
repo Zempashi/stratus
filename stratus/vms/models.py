@@ -29,23 +29,24 @@ class VM(models.Model):
             return
         elif self.status in [u'CREATED', u'STOPPED']:
             self.status = u'STARTED'
-            self.save()
 
     def stop(self):
         if self.status == u'STOPPED':
             return
         elif self.status in [u'CREATED', u'VANISHED']:
             self.status = u'STOPPED'
-            self.save()
 
     def erase(self):
         if self.status in [u'DELETED', 'VANISHED']:
             self.delete()
         elif self.status == u'TO_DELETE':
             return
-        elif self.status in [u'STARTED', u'STOPPED']:
+        elif self.status in [u'TO_CREATE', u'STARTED', u'STOPPED']:
+            self.status = u'TO_DELETE'
+
+    def disappear(self):
+        if self.status in [u'STARTED', u'STOPPED']:
             self.status = u'VANISHED'
-            self.save()
 
     def __unicode__(self):
         return u'<VM: {}>'.format(self.name)

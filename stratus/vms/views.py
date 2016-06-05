@@ -64,6 +64,9 @@ class VMDetail(mixins.RetrieveModelMixin,
 
     def delete(self, request, pk, format=None):
         vm = self._get_object(pk)
-        vm.delete()
+        vm.erase()
+        vm.save()
+        if vm.status == 'TO_DELETE':
+            Channel('create-vms').send(dict())
         return Response(status=status.HTTP_204_NO_CONTENT)
 

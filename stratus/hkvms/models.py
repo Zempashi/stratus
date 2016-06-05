@@ -28,7 +28,7 @@ class HKVM(models.Model):
             elif vm in stopped_vm:
                 vm.stop()
             else:
-                vm.erase()
+                vm.disappear()
             processed_vm.add(vm.name)
         for vm in six.viewkeys(started_vm) - processed_vm:
             VM.objects.create(name=vm, hkvm=self, status='STARTED')
