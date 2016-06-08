@@ -22,4 +22,5 @@ digraph VM_state_machine {
     DELETED -> PENDING [ label = "HTTP PUT (restore)" ];
 
     { rank=same; STARTED STOPPED }
+    { rank=same; PENDING DELETED }
 }
