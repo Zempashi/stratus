@@ -22,7 +22,7 @@ class VM(models.Model):
     disk = models.PositiveIntegerField(null=True)
     status = models.CharField(choices=VM_STATUS_ENUM, default='PENDING', max_length=100)
     created = models.DateTimeField(auto_now_add=True)
-    error = models.CharField(max_length=100)
+    error = models.CharField(blank=True, max_length=100)
 
     def start(self):
         if self.status == u'STARTED':

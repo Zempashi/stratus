@@ -14,4 +14,4 @@ def api_root(request, version):
         return Response({'vms': reverse('v1:vm-list', args=(), request=request),
                          'hkvms': reverse('v1:hkvm-list', args=(), request=request)})
     else:
-        return Response({'url': reverse(api_root, kwargs={'version': 'v1'}, request=request)})
+        return Response({'api_root': reverse(api_root, kwargs={'version': 'v1'}, request=request)})

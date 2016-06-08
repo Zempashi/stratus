@@ -21,7 +21,9 @@ from . import views
 urlpatterns = [
     url(r'^/?$', views.api_root),
     url(r'^vms/?$', views.VMList.as_view(), name='vm-list'),
-    url(r'^vms/(?P<pk>[0-9]+)/?$', views.VMDetail.as_view(), name='vm-detail'),
+    url(r'^vms/(?P<pk>[a-zA-Z0-9\.-]+)/?$', views.VMDetail.as_view(), name='vm-detail'),
+    url(r'^vms/(?P<pk>[a-zA-Z0-9\.-]+)/full/?$', views.VMDetail.as_view(), {'full': True}, name='vm-full'),
     url(r'^hkvms/?$', views.HKVMList.as_view(), name='hkvm-list'),
     url(r'^hkvms/(?P<pk>[0-9]+)/?$', views.HKVMDetail.as_view(), name='hkvm-detail'),
+    url(r'^hkvms/(?P<pk>[0-9]+)/full/?$', views.HKVMDetail.as_view(), {'full': True}, name='hkvm-full'),
 ]

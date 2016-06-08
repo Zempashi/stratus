@@ -1,7 +1,9 @@
 from django.shortcuts import render
 
 from .models import VM
-from .serializers import VMSerializer, VMDetailSerializer
+from .serializers import VMSerializer, \
+                         VMDetailSerializer, \
+                         VMFullSerializer
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework import generics
@@ -35,35 +37,41 @@ class VMList(mixins.ListModelMixin, generics.GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VMDetail(mixins.RetrieveModelMixin, generics.GenericAPIView):
+class FindByNameFilter(object):
+
+    def filter_queryset(self, request, queryset, view):
+        pk = view.kwargs['pk']
+        try:
+            int(pk)
+            return queryset
+        except ValueError:
+            view.kwargs['name'] = pk
+            view.lookup_field = 'name'
+            return queryset.exclude(status__in=['PENDING', 'DELETED'])
+
+
+class VMDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a snippet instance.
     """
 
     queryset = VM.objects.all()
     serializer_class = VMDetailSerializer
+    filter_backends = (FindByNameFilter,)
 
-    def _get_object(self, pk):
-        try:
-            return VM.objects.get(pk=pk)
-        except VM.DoesNotExist:
-            raise Http404
+    def get_serializer_class(self):
+        if self.kwargs.get('full', False):
+            return VMFullSerializer
+        else:
+            return VMDetailSerializer
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)
 
-    def put(self, request, pk, format=None):
-        vm = self._get_object(pk)
-        serializer = VMSerializer(vm, data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk, format=None):
-        vm = self._get_object(pk)
+    def perform_destroy(self, vm):
         vm.erase()
         vm.save()
         if vm.status == 'TO_DELETE':
             Channel('create-vms').send(dict())
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+

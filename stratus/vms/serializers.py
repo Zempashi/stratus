@@ -89,3 +89,13 @@ class VMDetailSerializer(VMSerializer):
             self.fields['args'].read_only = True
             self.fields['hkvm'].read_only = True
 
+
+class VMFullSerializer(serializers.HyperlinkedModelSerializer):
+
+    class Meta:
+        model = VM
+        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url',
+                  'memory', 'disk', 'error')
+        extra_kwargs = {
+            'hkvm': {'view_name': 'hkvm-detail'}
+        }
