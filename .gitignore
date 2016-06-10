@@ -1,5 +1,6 @@
 *.pyc
 *.sw[a-z]
+*.retry
 .ssh
 .bash_history
 .vim*
