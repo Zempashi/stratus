@@ -46,6 +46,14 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
             'hkvm': {'view_name': 'hkvm-detail'}
         }
 
+    def create(self, validated_data):
+        vm_with_same_name = VM.objects.filter(name=validated_data['name']).\
+                                       exclude(status='DELETED')
+        if vm_with_same_name:
+            raise ValueError('VM that already exists')
+        else:
+            return super(VMSerializer, self).create(validated_data)
+
     def validate(self, data):
         data['name'], data['memory'], data['disk'] = \
             self._parse_install_system(data['args'])
