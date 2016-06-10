@@ -65,7 +65,6 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
         parser.add_argument('-m', '--memory')
         parser.add_argument('-d', '--disk', action='append')
         args, rest = parser.parse_known_args(command_line.split())
-        print(args, rest)
         try:
             total_disk = 0
             for disk in args.disk:
