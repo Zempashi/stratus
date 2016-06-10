@@ -147,10 +147,7 @@ class AknAnsibleManager(object):
                     vm.error = ''
                     self.logger.info('Successfully delete %s'%vm)
                 elif res.get('failed'):
-                    try:
-                        vm.error = res['stdout']
-                    except KeyError:
-                        vm.error = res['msg']
+                    vm.error = json.dumps(res).encode('utf-8')
                 vm.save()
 
     def _parse_virsh_list_stdout(self, virsh_stdout):
