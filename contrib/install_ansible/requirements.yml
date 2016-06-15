@@ -1,0 +1,11 @@
+- src: git+ssh://git@git.arkena.net/ansible.galaxy/add-debian-repo
+  name: add-debian-repo
+
+- src: git+ssh://git@git.arkena.net/ansible.galaxy/postgresql-debian
+  name: postgresql-debian
+
+- src: git+ssh://git@git.arkena.net/ansible.galaxy/stratus-debian
+  name: stratus-debian
+
+- src: git+ssh://git@git.arkena.net/ansible.galaxy/ferm-common-debian
+  name: ferm-common-debian

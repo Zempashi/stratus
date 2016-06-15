@@ -6,3 +6,4 @@
 .vim*
 db.sqlite3
 inventory.cfg
+contrib/install_ansible/roles

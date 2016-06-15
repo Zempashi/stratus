@@ -1,0 +1,34 @@
+
+- name: "Prepare infra for stratus"
+  hosts: stratus_db
+  pre_tasks:
+    - name: "Register client to postgres"
+      add_host:
+        name: "{{ item }}"
+        group: _postgresql_client_{{ groups.stratus_db[0] }}
+      with_items: "{{ groups.stratus_worker }}"
+      changed_when: False
+
+    - name: "Register client to redis"
+      add_host:
+        name: "{{ item }}"
+        group: _redis_client_{{ groups.stratus_db[0] }}
+      with_items: "{{ groups.stratus_worker }}"
+      changed_when: False
+  roles:
+    - role: postgresql-debian
+#    - role: redis-debian
+
+- name: "Install stratus"
+  hosts: stratus_worker
+  roles:
+    - role: add-debian-repo
+      repo: 'deb http://debian.arkena.net/arkena-dev/ stretch main'
+      key_url: 'http://debian.arkena.net/arkena-dev/key.gpg'
+
+    - role: stratus-debian
+
+- name: "Open port in firewall"
+  hosts: stratus_db:stratus_worker
+  roles:
+    - role: ferm-common-debian
