@@ -46,5 +46,4 @@ setup(
     cmdclass={
 	'writeversion': WriteVersion
     },
-    scripts=['stratus-manage.py']
 )

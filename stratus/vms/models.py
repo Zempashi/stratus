@@ -37,7 +37,7 @@ class VM(models.Model):
             self.status = u'STOPPED'
 
     def erase(self):
-        if self.status in [u'DELETED', 'VANISHED']:
+        if self.status in [u'PENDING', u'DELETED', 'VANISHED']:
             self.delete()
         elif self.status == u'TO_DELETE':
             return

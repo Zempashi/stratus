@@ -64,13 +64,13 @@ class AnsibleHelper(object):
         self.options = options = self.Options(**self.options_args)
         vm = self.variable_manager
         vm.extra_vars = load_extra_vars(loader=self.loader, options=options)
-	pbe = PlaybookExecutor(
+        pbe = PlaybookExecutor(
             playbooks=[playbook],
-	    inventory=self.inventory,
-	    variable_manager=vm,
-	    loader=self.loader,
-	    options=options,
-	    passwords=dict(conn_pass='playground'),
+            inventory=self.inventory,
+            variable_manager=vm,
+            loader=self.loader,
+            options=options,
+            passwords=dict(conn_pass='playground'),
         )
         pbe.run()
-	return vm.get_vars(self.loader)
+        return vm.get_vars(self.loader)

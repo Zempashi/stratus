@@ -69,9 +69,12 @@ class VMDetail(generics.RetrieveUpdateDestroyAPIView):
         return self.retrieve(request, *args, **kwargs)
 
     def perform_destroy(self, vm):
-        vm.erase()
-        vm.save()
-        if vm.status == 'TO_DELETE':
-            Channel('create-vms').send(dict())
+        if vm.status in ['PENDING', 'DELETED', 'VANISHED']:
+            vm.erase()
+        else:
+            vm.erase()
+            vm.save()
+            if vm.status == 'TO_DELETE':
+                Channel('create-vms').send(dict())
 
 
