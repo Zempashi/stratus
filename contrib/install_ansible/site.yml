@@ -1,20 +1,6 @@
 
-- name: "Prepare infra for stratus"
+- name: "Prepare infra for stratus (1/2)"
   hosts: stratus_db
-  pre_tasks:
-    - name: "Register client to postgres"
-      add_host:
-        name: "{{ item }}"
-        group: _postgresql_client_{{ groups.stratus_db[0] }}
-      with_items: "{{ groups.stratus_worker }}"
-      changed_when: False
-
-    - name: "Register client to redis"
-      add_host:
-        name: "{{ item }}"
-        group: _redis_client_{{ groups.stratus_db[0] }}
-      with_items: "{{ groups.stratus_worker }}"
-      changed_when: False
   roles:
     - role: postgresql-debian
 #    - role: redis-debian
@@ -32,3 +18,11 @@
   hosts: stratus_db:stratus_worker
   roles:
     - role: ferm-common-debian
+
+- name: "Make db migration"
+  hosts: stratus_worker
+  vars:
+    stratus_db_group: 'stratus_db'
+    stratus_pg_password: 'pipo'
+  roles:
+    - role: stratus-pg-migrate

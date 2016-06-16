@@ -7,5 +7,8 @@
 - src: git+ssh://git@git.arkena.net/ansible.galaxy/stratus-debian
   name: stratus-debian
 
+- src: git+ssh://git@git.arkena.net/ansible.galaxy/stratus-migrate-and-run
+  name: stratus-migrate-and-run
+
 - src: git+ssh://git@git.arkena.net/ansible.galaxy/ferm-common-debian
   name: ferm-common-debian
