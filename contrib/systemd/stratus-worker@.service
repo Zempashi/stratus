@@ -1,0 +1,16 @@
+[Unit]
+Description=Run a stratus worker
+After=redis.service
+
+[Service]
+User=www-data
+Group=www-data
+Environment=HOME=/var/lib/stratus
+ExecStart=/usr/bin/python2 /etc/stratus/manage.py runworker -v2
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
