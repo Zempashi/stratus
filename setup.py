@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import subprocess
-from distutils.core import setup, Command
+from setuptools import setup, find_packages, Command
 
 from stratus import __version__
 
@@ -32,17 +32,10 @@ setup(
     description='An hypervisor manager without agent',
     license='GPLv3',
     url='https://github.com/Zempashi/stratus',
-    packages=['stratus',
-              'stratus.vms',
-              'stratus.hkvms',
-              'stratus.migrations',
-              'stratus.managers',
-              'stratus.managers.aknansible',
-              'stratus.managers.aknansible.migrations',
-              'stratus.allocators',
-              'stratus.allocators.hkvmallocator',
-    ],
+    packages=find_packages(),
     package_data={'stratus.managers.aknansible': ['playbooks/*.yml']},
+    install_requires=['django',
+                      'channels'],
     cmdclass={
 	'writeversion': WriteVersion
     },
