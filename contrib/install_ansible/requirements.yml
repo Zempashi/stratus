@@ -1,6 +1,8 @@
 - src: git+ssh://git@git.arkena.net/ansible.galaxy/add-debian-repo
   name: add-debian-repo
 
+- src: HanXHX.redis
+
 - src: git+ssh://git@git.arkena.net/ansible.galaxy/postgresql-debian
   name: postgresql-debian
 

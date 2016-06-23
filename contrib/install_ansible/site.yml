@@ -3,7 +3,7 @@
   hosts: stratus_db
   roles:
     - role: postgresql-debian
-#    - role: redis-debian
+    - role: HanXHX.redis
 
 - name: "Install stratus"
   hosts: stratus_worker
