@@ -5,7 +5,7 @@ After=redis.service
 [Service]
 User=www-data
 Group=www-data
-Environment=HOME=/var/lib/stratus
+Environment=HOME=/var/run/stratus
 ExecStart=/usr/bin/python2 /etc/stratus/manage.py runworker -v2
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
