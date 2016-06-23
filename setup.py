@@ -35,6 +35,7 @@ setup(
     packages=find_packages(),
     package_data={'stratus.managers.aknansible': ['playbooks/*.yml']},
     install_requires=['django',
+                      'djangorestframework>=3',
                       'channels'],
     cmdclass={
 	'writeversion': WriteVersion
