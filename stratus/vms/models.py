@@ -49,6 +49,6 @@ class VM(models.Model):
             self.status = u'VANISHED'
 
     def __unicode__(self):
-        return u'<VM: {}>'.format(self.name)
+        return u'{}'.format(self.name)
 
     __str__ = __unicode__

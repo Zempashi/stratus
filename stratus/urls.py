@@ -26,4 +26,6 @@ urlpatterns = [
     url(r'^hkvms/?$', views.HKVMList.as_view(), name='hkvm-list'),
     url(r'^hkvms/(?P<pk>[0-9]+)/?$', views.HKVMDetail.as_view(), name='hkvm-detail'),
     url(r'^hkvms/(?P<pk>[0-9]+)/full/?$', views.HKVMDetail.as_view(), {'full': True}, name='hkvm-full'),
+    url(r'^groups/?$', views.HKVMGroupList.as_view(), name='group-list'),
+    url(r'^runworker/?$', views.run_worker),
 ]

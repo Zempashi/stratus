@@ -1,1 +1,1 @@
-from .allocator import HKVMAllocator as Allocator
+from .mapping import Map, _all_

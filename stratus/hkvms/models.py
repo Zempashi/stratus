@@ -36,6 +36,36 @@ class HKVM(models.Model):
             VM.objects.create(name=vm, hkvm=self, status='STOPPED')
 
     def __unicode__(self):
-        return u'<HKVM: {}>'.format(self.name)
+        return u'{}'.format(self.name)
+
+    __str__ = __unicode__
+
+
+class HKVMGroup(models.Model):
+
+    name = models.CharField(max_length=100, unique=True)
+    children = models.ManyToManyField('HKVMGroup', related_name='father')
+    hkvms = models.ManyToManyField(HKVM)
+
+    def iter_hkvm(self):
+        child_set = set()
+        return self._iter_hkvm(child_set)
+
+    def _iter_hkvm(self, child_set):
+        for child in self.children:
+            if child not in child_set:
+                child_set.add(child)
+                for hkvm in child.iter_hkvm():
+                    yield hkvm
+        for hkvm in self.hkvms:
+            yield hkvm
+
+    def __unicode__(self):
+        children_prefix = map(lambda c: '->' + str(c), self.children.all())
+        return u'{} ({})'.format(
+            self.name,
+
+            self.hkvms.all(),
+            ', ->'.join(children_prefix))
 
     __str__ = __unicode__

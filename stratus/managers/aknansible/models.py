@@ -8,6 +8,7 @@ from django.apps import apps
 stratus_app = apps.get_app_config('stratus')
 VM = stratus_app.get_model('VM')
 HKVM = stratus_app.get_model('HKVM')
+HKVMGroup = stratus_app.get_model('HKVMGroup')
 
 
 class HKVMAnsibleStatus(HKVM):

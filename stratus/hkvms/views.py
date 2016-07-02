@@ -1,8 +1,9 @@
 
 from django.shortcuts import render
 
-from .models import HKVM
+from .models import HKVM, HKVMGroup
 from .serializers import HKVMSerializer
+from .serializers import HKVMGroupSerializer
 from django.http import Http404
 from rest_framework import mixins
 from rest_framework import generics
@@ -53,3 +54,14 @@ class HKVMDetail(generics.RetrieveUpdateDestroyAPIView):
 	    return HKVMSerializer
 	else:
 	    return HKVMSerializer
+
+
+class HKVMGroupList(generics.ListAPIView):
+    """
+    List all groups
+    """
+    queryset = HKVMGroup.objects.all()
+    serializer_class = HKVMGroupSerializer
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)

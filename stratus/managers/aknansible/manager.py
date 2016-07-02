@@ -12,7 +12,7 @@ from django.db.models import Max
 from django.apps import apps
 from django.core.exceptions import ImproperlyConfigured
 
-from .models import VM, HKVM
+from .models import VM, HKVM, HKVMGroup
 from .models import HKVMAnsibleStatus
 
 from . import settings
@@ -22,14 +22,6 @@ try:
     from django.utils import timezone as datetime
 except ImportError:
     from datetime import datetime
-
-try:
-    from .ansible_helper import AnsibleHelper
-except ImportError:
-    if six.PY3:
-        raise ValueError('Ansible is not compatible with python 3')
-    else:
-        raise
 
 if not apps.is_installed('stratus.managers.aknansible'):
     raise ImproperlyConfigured(u'You must add \'%s\' in INSTALLED_APPS'
@@ -45,14 +37,32 @@ class AknAnsibleManager(object):
         self.logger = logging.getLogger('stratus.AknAnsibleManager')
         self.HKVMClass = HKVMClass
 
-    def create_vm(self):
-        action_dict = ad = {'create': {}, 'remove': {}}
-        for hkvm in HKVM.objects.all():
-            ad['create'][hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_CREATE')
-            ad['remove'][hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_DELETE')
+    @property
+    def AnsibleHelper(self):
+        '''Load Ansible lazily.
+           Ansible make ~/.ansible when imported which could result in OSError
+           Worker is specially set to have is home writable'''
+        try:
+            from .ansible_helper import AnsibleHelper
+            return AnsibleHelper
+        except ImportError:
+            if six.PY3:
+                raise ValueError('Ansible is not compatible with python 3')
+            else:
+                raise
 
-        vars_ = self._action_vm_ansible(action_dict)
-        self._parse_action_results(vars_, action_dict)
+    def create_vm(self):
+        ah = self.AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
+        av = ActionVM()
+        create = {hkvm: dict(av.vm_create(hkvm)) for hkvm in av.hkvm_create}
+        remove = {hkvm: dict(av.vm_remove(hkvm)) for hkvm in av.hkvm_remove}
+        extra_vars = json.dumps({'map_create': create, 'map_remove': remove})
+        ah.options_args['extra_vars'] = [extra_vars]
+        module_basedir = os.path.dirname(__file__)
+        pb_file = os.path.join(module_basedir, 'playbooks', 'action_vm.yml')
+        vars_ = ah.run_playbook(pb_file)
+        self._parse_create_results(vars_, av)
+        self._parse_remove_results(vars_, av)
 
     def hkvm_status(self, group=None, hkvm=None):
         all_hkvm = self.HKVMClass.objects.all()
@@ -69,13 +79,12 @@ class AknAnsibleManager(object):
 
     def _hkvm_vm_and_ressources(self, group=None, hkvm=None):
         variables = self._list_vm_ansible()
+        self.make_group(variables)
         groups = self._format_groups(variables)
         for hkvm_name in groups['hkvm']:
-            HKVMManager = self.HKVMClass.objects
-            try:
-                hkvm = HKVMManager.get(name=hkvm_name)
-            except HKVM.DoesNotExist:
-                hkvm = HKVMManager.create(name=hkvm_name, virtual=False)
+            hkvm, created = self.HKVMClass.objects.get_or_create(
+                name=hkvm_name,
+                defaults={'virtual': False})
             # VM List
             hkvm_vars = variables['hostvars'][hkvm_name]
             virsh_stdout = hkvm_vars['hkvm_list_vm']['stdout_lines']
@@ -95,39 +104,21 @@ class AknAnsibleManager(object):
             hkvm.save()
 
     def _list_vm_ansible(self):
-        ah = AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
+        ah = self.AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
         module_basedir = os.path.dirname(__file__)
         pb_file = os.path.join(module_basedir, 'playbooks', 'list_hkvm.yml')
         return ah.run_playbook(pb_file)
 
-    def _action_vm_ansible(self, action_dict):
-        ah = AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
-        action_map = {}
-        for action in ['create', 'remove']:
-            action_map[action + '_map'] = map_ = {}
-            for hkvm, vm_list in six.iteritems(action_dict[action]):
-                map_[hkvm.name] = dict((v.name, v.args) for v in vm_list)
-
-        ah.options_args['extra_vars'] = [json.dumps(action_map)]
-        # ah.options_args['check'] = True
-        module_basedir = os.path.dirname(__file__)
-        pb_file = os.path.join(module_basedir, 'playbooks', 'action_vm.yml')
-        return ah.run_playbook(pb_file)
-
-    def _parse_action_results(self, vars_, action_dict):
-        self._parse_create_results(vars_, action_dict['create'])
-        self._parse_remove_results(vars_, action_dict['remove'])
-
-    def _parse_create_results(self, vars_, action_create):
-        for hkvm, vm_list in six.iteritems(action_create):
-            create_res = vars_['hostvars'][hkvm.name]['create_vm_result']
+    def _parse_create_results(self, vars_, action_obj):
+        for hkvm in action_obj.hkvm_create:
+            create_res = vars_['hostvars'][hkvm]['create_vm_result']
             res_dict = dict((r['item'], r) for r in create_res['results'])
-            for vm in vm_list:
+            for vm in action_obj.vm_create(hkvm):
                 res = res_dict.get(vm.name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
                     vm.status = 'STOPPED'
                     vm.error = ''
-                    self.logger.info('Successfully create %s'%vm)
+                    self.logger.info('Successfully create %s' % vm)
                 elif res.get('failed'):
                     try:
                         vm.error = res['stdout']
@@ -135,17 +126,17 @@ class AknAnsibleManager(object):
                         vm.error = res['msg']
                 vm.save()
 
-    def _parse_remove_results(self, vars_, action_remove):
-        for hkvm, vm_list in six.iteritems(action_remove):
+    def _parse_remove_results(self, vars_, action_obj):
+        for hkvm in action_obj.hkvm_remove:
             undefine_res = vars_['hostvars'][hkvm.name]['undefine_vm_result']
-            destroy_res = vars_['hostvars'][hkvm.name]['destroy_vm_result']
+            # destroy_res = vars_['hostvars'][hkvm.name]['destroy_vm_result']
             res_dict = dict((r['item'], r) for r in undefine_res['results'])
-            for vm in vm_list:
+            for vm in action_obj.vm_remove(hkvm):
                 res = res_dict.get(vm.name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
                     vm.status = 'DELETED'
                     vm.error = ''
-                    self.logger.info('Successfully delete %s'%vm)
+                    self.logger.info('Successfully delete %s' % vm)
                 elif res.get('failed'):
                     vm.error = json.dumps(res).encode('utf-8')
                 vm.save()
@@ -186,3 +177,42 @@ class AknAnsibleManager(object):
         for group_name, group in group_items:
             groups[group_name] = [h.name for h in group.get_hosts()]
         return groups
+
+    def make_group(self, variables):
+        all_groups = variables['hostvars']._inventory.get_groups()
+        for name, ans_group in six.iteritems(all_groups):
+            group, _ = HKVMGroup.objects.get_or_create(name=name)
+            children = [HKVMGroup.objects.get_or_create(name=g.name)[0]
+                        for g in ans_group.child_groups]
+            group.children = children
+            hkvms = [HKVM.objects.get_or_create(name=h.name)[0]
+                     for h in ans_group.get_hosts()]
+            group.hkvms = hkvms
+            group.save()
+
+
+class ActionVM(object):
+
+    def __init__(self,):
+        self.to_create = {}
+        self.to_remove = {}
+        for hkvm in HKVM.objects.all():
+            self.to_create[hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_CREATE').all()
+            self.to_remove[hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_DELETE').all()
+
+    def _vm_action(action):
+        def iter_vm_action(self, hkvm):
+            return ((v.name, v.args) for v in getattr(self, action)[hkvm])
+        return iter_vm_action
+
+    vm_create = _vm_action('to_create')
+    vm_remove = _vm_action('to_remove')
+
+    def _hkvm_action(action):
+        def iter_hkvm_action(self):
+            var = getattr(self, action)
+            return filter(lambda x: var[x], six.iterkeys(var))
+        return iter_hkvm_action
+
+    hkvm_create = property(_hkvm_action('to_create'))
+    hkvm_remove = property(_hkvm_action('to_remove'))

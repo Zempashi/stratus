@@ -1,7 +1,7 @@
 
 from rest_framework import serializers
 
-from .models import HKVM, HKVM_STATUS_ENUM
+from .models import HKVM, HKVMGroup
 
 
 class HKVMSerializer(serializers.HyperlinkedModelSerializer):
@@ -13,3 +13,10 @@ class HKVMSerializer(serializers.HyperlinkedModelSerializer):
         model = HKVM
         fields = ('id', 'name', 'virtual', 'last_status', 'last_updated', 'created', 'vm_set', 'url')
 
+
+class HKVMGroupSerializer(serializers.ModelSerializer):
+
+    hkvms = serializers.HyperlinkedRelatedField(view_name='hkvm-detail', queryset=HKVM.objects.all(), many=True)
+
+    class Meta:
+        model = HKVMGroup
