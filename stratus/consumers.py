@@ -2,7 +2,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import logging
-from .import_class import import_cls
+from django.utils.module_loading import import_string
 
 from .models import VM
 from . import settings
@@ -16,8 +16,8 @@ class VMConsumer(object):
         self.logger = logging.getLogger(__name__)
         self.manager_module = manager_module
         self.allocator_module = allocator_module
-        self.MANAGER_CLS = import_cls(manager_module)
-        self.ALLOCATOR_CLS = import_cls(allocator_module)
+        self.MANAGER_CLS = import_string(manager_module)
+        self.ALLOCATOR_CLS = import_string(allocator_module)
         self.manager = self.MANAGER_CLS()
         self.allocator = self.ALLOCATOR_CLS()
 
