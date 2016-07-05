@@ -7,6 +7,7 @@ import re
 from django.utils import six
 
 from rest_framework import serializers
+# from rest_framework import validators
 from .models import VM
 
 
@@ -42,19 +43,21 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
         model = VM
         fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url',
                   'memory', 'disk', 'error')
-        extra_kwargs = {
-            'hkvm': {'view_name': 'hkvm-detail'}
-        }
-
-    def create(self, validated_data):
-        vm_with_same_name = VM.objects.filter(name=validated_data['name']).\
-                                       exclude(status='DELETED')
-        if vm_with_same_name:
-            raise ValueError('VM that already exists')
-        else:
-            return super(VMSerializer, self).create(validated_data)
+        # validators = [
+        #     validators.UniqueTogetherValidator(
+        #         queryset=VM.objects.exclude(status='DELETED'),
+        #         fields=('name'),
+        #         message='VM with that name already exists')
+        #     ]
 
     def validate(self, data):
+        same_obj = VM.objects.exclude(status='DELETED').filter(name=data['name'])
+        if len(same_obj):
+            raise serializers.ValidationError('VM with that name already exists')
+        return data
+
+    def to_internal_value(self, data_input):
+        data = super(VMSerializer, self).to_internal_value(data_input)
         data['name'], data['memory'], data['disk'] = \
             self._parse_install_system(data['args'])
         return data
@@ -75,13 +78,14 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
                     _, disk_size = expr_disk
                 total_disk += _scientific_int(disk_size)
         except TypeError as exc:
-            six.raise_from(ValueError('No disk specified'), exc)
+            six.raise_from(serializers.ValidationError('No disk specified'),
+                           exc)
         if args.memory is None:
-            raise ValueError('No mem specified')
+            raise serializers.ValidationError('No mem specified')
         else:
             memory = _scientific_int(args.memory)
         if args.name is None:
-            raise ValueError('No name specified')
+            raise serializers.ValidationError('No name specified')
         else:
             name = args.name
         return name, memory, total_disk

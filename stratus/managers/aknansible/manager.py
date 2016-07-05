@@ -5,15 +5,12 @@ import os
 import logging
 import pprint
 import json
+import base64
 
 from django.utils import six
 from django.utils.six.moves import filter
 from django.db.models import Max
 from django.apps import apps
-from django.core.exceptions import ImproperlyConfigured
-
-from .models import VM, HKVM, HKVMGroup
-from .models import HKVMAnsibleStatus
 
 from . import settings
 from .settings import STRATUS_ANSIBLE_INVENTORY
@@ -23,16 +20,17 @@ try:
 except ImportError:
     from datetime import datetime
 
-if not apps.is_installed('stratus.managers.aknansible'):
-    raise ImproperlyConfigured(u'You must add \'%s\' in INSTALLED_APPS'
-                               % '.'.join(__name__.split('.')[:-1]))
+stratus_app = apps.get_app_config('stratus')
+VM = stratus_app.get_model('VM')
+HKVM = stratus_app.get_model('HKVM')
+HKVMGroup = stratus_app.get_model('HKVMGroup')
 
 
 class AknAnsibleManager(object):
 
     def __init__(self,
                  cache_time=settings.STRATUS_ANSIBLE_HKVM_CACHE_TIME,
-                 HKVMClass=HKVMAnsibleStatus):
+                 HKVMClass=HKVM):
         self.cache_time = cache_time
         self.logger = logging.getLogger('stratus.AknAnsibleManager')
         self.HKVMClass = HKVMClass
@@ -53,10 +51,14 @@ class AknAnsibleManager(object):
 
     def create_vm(self):
         ah = self.AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
-        av = ActionVM()
-        create = {hkvm: dict(av.vm_create(hkvm)) for hkvm in av.hkvm_create}
-        remove = {hkvm: dict(av.vm_remove(hkvm)) for hkvm in av.hkvm_remove}
-        extra_vars = json.dumps({'map_create': create, 'map_remove': remove})
+        av = ActionVM(HKVMClass=self.HKVMClass)
+        create = {hkvm.name: dict((vm_name, vm.args)
+                  for vm_name, vm in av.vm_create(hkvm))
+                  for hkvm in av.hkvm_create}
+        remove = {hkvm.name: dict((vm_name, vm.args)
+                  for vm_name, vm in av.vm_remove(hkvm))
+                  for hkvm in av.hkvm_remove}
+        extra_vars = json.dumps({'create_map': create, 'remove_map': remove})
         ah.options_args['extra_vars'] = [extra_vars]
         module_basedir = os.path.dirname(__file__)
         pb_file = os.path.join(module_basedir, 'playbooks', 'action_vm.yml')
@@ -66,8 +68,8 @@ class AknAnsibleManager(object):
 
     def hkvm_status(self, group=None, hkvm=None):
         all_hkvm = self.HKVMClass.objects.all()
-        older_hkvm = all_hkvm.aggregate(Max('last_status_updated'))
-        last_status = older_hkvm['last_status_updated__max']
+        older_hkvm = all_hkvm.aggregate(Max('last_updated'))
+        last_status = older_hkvm['last_updated__max']
         if last_status is not None:
             delta = (datetime.now() - last_status).total_seconds()
             self.logger.debug('HKVM info refresh have been done'
@@ -96,10 +98,20 @@ class AknAnsibleManager(object):
             # Disk update
             vgdisplay_stdout = hkvm_vars['hkvm_free_space']['stdout_lines']
             hkvm.disk = self._parse_vgdisplay_stdout(vgdisplay_stdout)
+            # Load update
+            loadavg_content = hkvm_vars['hkvm_load']['content']
+            load_info = base64.b64decode(loadavg_content).split()
+            nb_cpu = hkvm_vars['ansible_processor_cores'] * \
+                     hkvm_vars['ansible_processor_count']
+            # fifteen minutes average load
+            # tempered by cpu count
+            hkvm.load = float(load_info[2]) / nb_cpu
             self.logger.debug('HKVM {hkvm} has {mem} MB RAM and '
-                              '{disk} MB disk left'.format(hkvm=hkvm_name,
-                                                           mem=hkvm.memory,
-                                                           disk=hkvm.disk))
+                              '{disk} MB disk left. '
+                              'HKVM load is {load}'.format(hkvm=hkvm_name,
+                                                          mem=hkvm.memory,
+                                                          disk=hkvm.disk,
+                                                          load=hkvm.load))
             # Update the status date for HKVM
             hkvm.save()
 
@@ -111,10 +123,10 @@ class AknAnsibleManager(object):
 
     def _parse_create_results(self, vars_, action_obj):
         for hkvm in action_obj.hkvm_create:
-            create_res = vars_['hostvars'][hkvm]['create_vm_result']
+            create_res = vars_['hostvars'][hkvm.name]['create_vm_result']
             res_dict = dict((r['item'], r) for r in create_res['results'])
-            for vm in action_obj.vm_create(hkvm):
-                res = res_dict.get(vm.name)
+            for vm_name, vm in action_obj.vm_create(hkvm):
+                res = res_dict.get(vm)
                 if not res or (not res.get('failed') and not res.get('skipped')):
                     vm.status = 'STOPPED'
                     vm.error = ''
@@ -131,8 +143,8 @@ class AknAnsibleManager(object):
             undefine_res = vars_['hostvars'][hkvm.name]['undefine_vm_result']
             # destroy_res = vars_['hostvars'][hkvm.name]['destroy_vm_result']
             res_dict = dict((r['item'], r) for r in undefine_res['results'])
-            for vm in action_obj.vm_remove(hkvm):
-                res = res_dict.get(vm.name)
+            for vm_name, vm in action_obj.vm_remove(hkvm):
+                res = res_dict.get(vm_name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
                     vm.status = 'DELETED'
                     vm.error = ''
@@ -185,7 +197,7 @@ class AknAnsibleManager(object):
             children = [HKVMGroup.objects.get_or_create(name=g.name)[0]
                         for g in ans_group.child_groups]
             group.children = children
-            hkvms = [HKVM.objects.get_or_create(name=h.name)[0]
+            hkvms = [self.HKVMClass.objects.get_or_create(name=h.name)[0]
                      for h in ans_group.get_hosts()]
             group.hkvms = hkvms
             group.save()
@@ -193,16 +205,17 @@ class AknAnsibleManager(object):
 
 class ActionVM(object):
 
-    def __init__(self,):
+    def __init__(self, HKVMClass=HKVM):
+        self.HKVMClass = HKVMClass
         self.to_create = {}
         self.to_remove = {}
-        for hkvm in HKVM.objects.all():
+        for hkvm in self.HKVMClass.objects.filter(virtual=False).all():
             self.to_create[hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_CREATE').all()
             self.to_remove[hkvm] = VM.objects.filter(hkvm=hkvm, status='TO_DELETE').all()
 
     def _vm_action(action):
         def iter_vm_action(self, hkvm):
-            return ((v.name, v.args) for v in getattr(self, action)[hkvm])
+            return ((vm.name, vm) for vm in getattr(self, action)[hkvm])
         return iter_vm_action
 
     vm_create = _vm_action('to_create')

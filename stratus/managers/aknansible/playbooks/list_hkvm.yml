@@ -12,3 +12,8 @@
       command: vgdisplay vg --units M
       changed_when: False
       register: hkvm_free_space
+
+    - name: "Get the load of the server"
+      slurp:
+        path: "/proc/loadavg"
+      register: hkvm_load

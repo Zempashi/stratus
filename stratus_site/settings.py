@@ -69,7 +69,6 @@ INSTALLED_APPS = (
     'channels',
     'rest_framework',
     'stratus',
-    'stratus.managers.aknansible'
 )
 
 MIDDLEWARE_CLASSES = (

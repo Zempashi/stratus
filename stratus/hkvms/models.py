@@ -15,6 +15,9 @@ HKVM_STATUS_ENUM = [(u'UNKNOWN',  u'HKVM status is unknown'),
 class HKVM(models.Model):
     name = models.CharField(max_length=100, unique=True)
     virtual = models.BooleanField(default=False)
+    memory = models.PositiveIntegerField(null=True)
+    disk = models.PositiveIntegerField(null=True)
+    load = models.FloatField(null=True)
     created = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True, null=True)
     last_status = models.CharField(choices=HKVM_STATUS_ENUM,
@@ -52,12 +55,12 @@ class HKVMGroup(models.Model):
         return self._iter_hkvm(child_set)
 
     def _iter_hkvm(self, child_set):
-        for child in self.children:
+        for child in self.children.all():
             if child not in child_set:
                 child_set.add(child)
                 for hkvm in child.iter_hkvm():
                     yield hkvm
-        for hkvm in self.hkvms:
+        for hkvm in self.hkvms.all():
             yield hkvm
 
     def __unicode__(self):
