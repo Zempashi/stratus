@@ -107,6 +107,3 @@ class VMFullSerializer(serializers.HyperlinkedModelSerializer):
         model = VM
         fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url',
                   'memory', 'disk', 'error')
-        extra_kwargs = {
-            'hkvm': {'view_name': 'hkvm-detail'}
-        }
