@@ -4,6 +4,8 @@
 .ssh
 .bash_history
 .vim*
+.sqlite_*
+*/migrations/*
 db.sqlite3
 inventory.cfg
 contrib/install_ansible/roles
