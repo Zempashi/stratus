@@ -33,8 +33,18 @@ class HKVMAllocator(object):
             except VM.DoesNotExist:
                 return
         self.logger.debug('All VM to allocate \'{}\''.format(vms))
+        vm_same_name = VM.objects.filter(name__in=[vm.name for vm in vms])\
+             .exclude(status__in=[u'PENDING', u'DELETED'])\
+             .only('name')
+        vm_set_same_name = set((vm.name for vm in vm_same_name))
         for vm in vms:
-            self._allocate_single_vm(vm)
+            if vm.name in vm_set_same_name:
+                self.logger.debug('VM \'{}\': Found a vm with same name'
+                                  'during allocation'.format(vm))
+                vm.error = u'Allocator/ VM with same name exists'
+                vm.save()
+            else:
+                self._allocate_single_vm(vm)
 
     def get_group(self, vm):
         match_conf = self.match_conf
