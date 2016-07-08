@@ -104,7 +104,7 @@ class AnsibleHelper(multiprocessing.Process):
                 variable_manager=vm,
                 loader=self.loader,
                 options=options,
-                passwords=dict(conn_pass='playground'),
+                passwords=dict(),
                 stdout_callback='default')
             tqm.run(play)
             return vm.get_vars(self.loader)
@@ -122,7 +122,7 @@ class AnsibleHelper(multiprocessing.Process):
             variable_manager=vm,
             loader=self.loader,
             options=options,
-            passwords=dict(conn_pass='playground'),
+            passwords=dict(),
         )
         pbe.run()
         return vm.get_vars(self.loader)
