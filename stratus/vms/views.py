@@ -76,5 +76,3 @@ class VMDetail(generics.RetrieveUpdateDestroyAPIView):
             vm.save()
             if vm.status == 'TO_DELETE':
                 Channel('create-vms').send(dict())
-
-

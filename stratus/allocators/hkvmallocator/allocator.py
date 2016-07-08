@@ -65,7 +65,7 @@ class HKVMAllocator(object):
                 # No allocation has to be made
                 pass
             elif group_id is mapping._all_:
-                all_hkvm = self.HKVMClass.objects.filter(virtual=False).all()
+                all_hkvm = self.HKVMClass.objects.filter(virtual=False)
                 self._allocate_to_hkvms(vm, all_hkvm)
             elif isinstance(group_id, six.string_types):
                 group = HKVMGroup.objects.get(name=group_id)
@@ -78,13 +78,17 @@ class HKVMAllocator(object):
                         group_id, type(group_id)))
         except Exception as exc:
             exc_string = traceback.format_exception_only(type(exc), exc)[0]
-            self.logger.debug('Cannot allocate VM \'{}\' because of: {}'.format(vm, exc_string))
-            vm.error = exc_string
+            self.logger.debug('Cannot allocate VM \'{}\''
+                'because of: {}'.format(vm, exc_string), exc_info=True)
+            vm.error = "Allocator/" + exc_string
             vm.save()
 
     def _allocate_to_hkvms(self, vm, hkvms):
         iter_weight = self._iter_hkvm_weight(hkvms, vm)
-        hkvm, weight = max(iter_weight, key=operator.itemgetter(1))
+        try:
+            hkvm, weight = max(iter_weight, key=operator.itemgetter(1))
+        except ValueError:
+            raise ValueError('No hypervisor selected')
         if weight <= 0:
             # All weight are below zero: no hkvm can fit
             self.logger.warning('\'{vm}\' cannot be allocated'
