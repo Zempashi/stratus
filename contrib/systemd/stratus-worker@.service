@@ -8,7 +8,6 @@ Group=www-data
 Environment=HOME=/var/run/stratus
 ExecStart=/usr/bin/python2 /etc/stratus/manage.py runworker -v2
 ExecReload=/bin/kill -HUP $MAINPID
-KillMode=process
 Restart=always
 RestartSec=10s
 
