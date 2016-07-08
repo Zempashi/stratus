@@ -41,8 +41,6 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = VM
-        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url',
-                  'memory', 'disk', 'error')
         # validators = [
         #     validators.UniqueTogetherValidator(
         #         queryset=VM.objects.exclude(status='DELETED'),
@@ -105,5 +103,3 @@ class VMFullSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = VM
-        fields = ('id', 'name', 'hkvm', 'args', 'status', 'created', 'url',
-                  'memory', 'disk', 'error')

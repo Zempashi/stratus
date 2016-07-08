@@ -11,7 +11,6 @@ class HKVMSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = HKVM
-        fields = ('id', 'name', 'virtual', 'last_status', 'last_updated', 'created', 'vm_set', 'url')
 
 
 class HKVMGroupSerializer(serializers.ModelSerializer):
