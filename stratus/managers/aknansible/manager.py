@@ -126,16 +126,13 @@ class AknAnsibleManager(object):
             create_res = vars_['hostvars'][hkvm.name]['create_vm_result']
             res_dict = dict((r['item'], r) for r in create_res['results'])
             for vm_name, vm in action_obj.vm_create(hkvm):
-                res = res_dict.get(vm)
+                res = res_dict.get(vm_name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
                     vm.status = 'STOPPED'
                     vm.error = ''
                     self.logger.info('Successfully create %s' % vm)
                 elif res.get('failed'):
-                    try:
-                        vm.error = res['stdout']
-                    except KeyError:
-                        vm.error = res['msg']
+                    vm.error = json.dumps(res).encode('utf-8')
                 vm.save()
 
     def _parse_remove_results(self, vars_, action_obj):
