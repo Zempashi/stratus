@@ -64,11 +64,11 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
         parser = argparse.ArgumentParser()
         parser.add_argument('-n', dest='name')
         parser.add_argument('-m', '--memory')
-        parser.add_argument('-d', '--disk', action='append')
+        parser.add_argument('-d', '--disks', action='append')
         args, rest = parser.parse_known_args(command_line.split())
         try:
             total_disk = 0
-            for disk in args.disk:
+            for disk in args.disks:
                 expr_disk = disk.split(':')
                 try:
                     disk_size, = expr_disk
