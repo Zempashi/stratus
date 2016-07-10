@@ -52,11 +52,11 @@ class AknAnsibleManager(object):
     def create_vm(self):
         ah = self.AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)
         av = ActionVM(HKVMClass=self.HKVMClass)
-        create = {hkvm.name: dict((vm_name, vm.args)
-                  for vm_name, vm in av.vm_create(hkvm))
+        create = {hkvm.name: dict((vm.name, vm.args)
+                  for vm in av.vm_create(hkvm))
                   for hkvm in av.hkvm_create}
-        remove = {hkvm.name: dict((vm_name, vm.args)
-                  for vm_name, vm in av.vm_remove(hkvm))
+        remove = {hkvm.name: dict((vm.name, vm.args)
+                  for vm in av.vm_remove(hkvm))
                   for hkvm in av.hkvm_remove}
         extra_vars = json.dumps({'create_map': create, 'remove_map': remove})
         ah.options_args['extra_vars'] = [extra_vars]
@@ -212,7 +212,7 @@ class ActionVM(object):
 
     def _vm_action(action):
         def iter_vm_action(self, hkvm):
-            return ((vm.name, vm) for vm in getattr(self, action)[hkvm])
+            return (vm for vm in getattr(self, action)[hkvm])
         return iter_vm_action
 
     vm_create = _vm_action('to_create')
