@@ -127,12 +127,11 @@ class AknAnsibleManager(object):
             for vm in action_obj.vm_create(hkvm):
                 res = res_dict.get(vm.name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
-                    vm.status = 'STOPPED'
                     vm.error = ''
-                    self.logger.info('Successfully create %s' % vm)
+                    vm.created()
                 elif res.get('failed'):
                     vm.error = json.dumps(res).encode('utf-8')
-                vm.save()
+                    vm.save()
 
     def _parse_remove_results(self, vars_, action_obj):
         for hkvm in action_obj.hkvm_remove:
@@ -142,12 +141,11 @@ class AknAnsibleManager(object):
             for vm in action_obj.vm_remove(hkvm):
                 res = res_dict.get(vm.name)
                 if not res or (not res.get('failed') and not res.get('skipped')):
-                    vm.status = 'DELETED'
                     vm.error = ''
-                    self.logger.info('Successfully delete %s' % vm)
+                    vm.deleted()
                 elif res.get('failed'):
                     vm.error = json.dumps(res).encode('utf-8')
-                vm.save()
+                    vm.save()
 
     def _parse_virsh_list_stdout(self, virsh_stdout):
         res = dict(started_vm={}, stopped_vm={})

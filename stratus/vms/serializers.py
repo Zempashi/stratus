@@ -34,9 +34,10 @@ class VMSerializer(serializers.HyperlinkedModelSerializer):
 
     name = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
-    created = serializers.CharField(read_only=True)
+    created_date = serializers.CharField(read_only=True)
     memory = serializers.IntegerField(read_only=True)
     disk = serializers.IntegerField(read_only=True)
+    IP = serializers.IPAddressField(read_only=True)
     error = serializers.CharField(read_only=True)
 
     class Meta:
