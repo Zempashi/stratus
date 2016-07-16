@@ -59,23 +59,26 @@ class HKVMAllocator(object):
                                  'allocate this VM: \'{}\''.format(vm))
 
     def _allocate_single_vm(self, vm):
-        try:
+        if vm.hkvm:
+            hkvms = [vm.hkvm]
+        else:
             group_id = self.get_group(vm)
-            if group_id is None:
+            elif group_id is None:
                 # No allocation has to be made
                 pass
             elif group_id is mapping._all_:
-                all_hkvm = self.HKVMClass.objects.filter(virtual=False)
-                self._allocate_to_hkvms(vm, all_hkvm)
+                hkvms = self.HKVMClass.objects.filter(virtual=False)
             elif isinstance(group_id, six.string_types):
                 group = HKVMGroup.objects.get(name=group_id)
                 self.logger.debug('group \'{}\' has been selected for \'{}\''
-                                  ''.format(group, vm))
-                self._allocate_to_hkvms(vm, group.iter_hkvm())
+                                ''.format(group, vm))
+                hkvms = group.iter_hkvm()
             else:
                 raise TypeError(
                     'Can\'t use the group \'{}\' of type \'{}\''.format(
-                        group_id, type(group_id)))
+                         group_id, type(group_id)))
+        try:
+            self._allocate_to_hkvms(vm, hkvms)
         except Exception as exc:
             exc_string = traceback.format_exception_only(type(exc), exc)[0]
             self.logger.debug('Cannot allocate VM \'{}\''
