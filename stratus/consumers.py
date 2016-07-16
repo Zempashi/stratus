@@ -2,11 +2,13 @@
 from __future__ import absolute_import, unicode_literals
 
 import logging
+import django.dispatch
+from django.utils import six
 from django.utils.module_loading import import_string
 
-from .models import VM
+from .models import VM, HKVM
 from . import settings
-
+from .signals import before_action
 
 class VMConsumer(object):
 
@@ -34,10 +36,45 @@ class VMConsumer(object):
         self.manager.hkvm_status()
         self.allocator.allocate(vm_to_create)
         try:
-            self.manager.create_vm()
+            self.manager.create_vm(action = ActionVM())
         except BaseException:
             # TODO: Mark VM as faulty
 
             raise
 
 vm_consumer = VMConsumer()
+
+class ActionVM(object):
+
+    def __init__(self, HKVMClass=HKVM):
+        self.HKVMClass = HKVMClass
+        self.to_create = {}
+        self.to_delete = {}
+        vm_to_create = [vm for vm in VM.objects.filter(status=u'TO_CREATE',
+                                          hkvm__virtual=False).all()]
+        vm_to_delete = [vm for vm in VM.objects.filter(status=u'TO_DELETE',
+                                          hkvm__virtual=False).all()]
+        before_action.send(sender=self.__class__,
+                           create_list=vm_to_create,
+                           delete_list=vm_to_delete)
+        for vm in vm_to_create:
+            self.to_create.setdefault(vm.hkvm, []).append(vm)
+        for vm in vm_to_delete:
+            self.to_delete.setdefault(vm.hkvm, []).append(vm)
+
+    def _vm_action(action):
+        def iter_vm_action(self, hkvm):
+            return (vm for vm in getattr(self, action)[hkvm])
+        return iter_vm_action
+
+    vm_create = _vm_action('to_create')
+    vm_remove = _vm_action('to_delete')
+
+    def _hkvm_action(action):
+        def iter_hkvm_action(self):
+            var = getattr(self, action)
+            return filter(lambda x: var[x], six.iterkeys(var))
+        return iter_hkvm_action
+
+    hkvm_create = property(_hkvm_action('to_create'))
+    hkvm_remove = property(_hkvm_action('to_delete'))
