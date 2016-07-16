@@ -22,6 +22,7 @@ class HKVM(models.Model):
     last_updated = models.DateTimeField(auto_now=True, null=True)
     last_status = models.CharField(choices=HKVM_STATUS_ENUM,
                                     default=u'UNKNOWN', max_length=100)
+    error = models.CharField(blank=True, max_length=10000)
 
     def update_vms(self, started_vm, stopped_vm):
         processed_vm = set()

@@ -4,22 +4,22 @@ from __future__ import absolute_import, unicode_literals
 import logging
 import django.dispatch
 from django.utils import six
+from django.conf import settings
 from django.utils.module_loading import import_string
 
 from .models import VM, HKVM
-from . import settings
 from .signals import before_action
 
 class VMConsumer(object):
 
-    def __init__(self,
-                 manager_module=settings.STRATUS_MANAGER,
-                 allocator_module=settings.STRATUS_ALLOCATOR):
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.manager_module = manager_module
-        self.allocator_module = allocator_module
-        self.MANAGER_CLS = import_string(manager_module)
-        self.ALLOCATOR_CLS = import_string(allocator_module)
+        self.manager_module = getattr(settings, 'STRATUS_MANAGER',
+            'stratus.managers.aknansible.manager.AknAnsibleManager')
+        self.allocator_module = getattr(settings, 'STRATUS_ALLOCATOR',
+            'stratus.allocators.hkvmallocator.allocator.HKVMAllocator')
+        self.MANAGER_CLS = import_string(self.manager_module)
+        self.ALLOCATOR_CLS = import_string(self.allocator_module)
         self.manager = self.MANAGER_CLS()
         self.allocator = self.ALLOCATOR_CLS()
 
@@ -39,10 +39,10 @@ class VMConsumer(object):
             self.manager.create_vm(action = ActionVM())
         except BaseException:
             # TODO: Mark VM as faulty
-
             raise
 
-vm_consumer = VMConsumer()
+def get_consumer():
+    return VMConsumer()
 
 class ActionVM(object):
 

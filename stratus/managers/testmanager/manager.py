@@ -8,8 +8,6 @@ VM = stratus_app.get_model('VM')
 HKVM = stratus_app.get_model('HKVM')
 HKVMGroup = stratus_app.get_model('HKVMGroup')
 
-from ..aknansible.manager import ActionVM
-
 class TestManager(object):
 
     def __init__(self, HKVMClass=HKVM):
@@ -31,15 +29,14 @@ class TestManager(object):
             hkvm.load = 0.2
             hkvm.save()
 
-    def create_vm(self):
-        av = ActionVM(HKVMClass=self.HKVMClass)
-        for hkvm in av.hkvm_remove:
+    def create_vm(self, action):
+        for hkvm in action.hkvm_remove:
             hkvm_map = self.hkvm_mapping_vm.get(hkvm, {})
-            for vm in av.vm_remove(hkvm):
+            for vm in action.vm_remove(hkvm):
                 vm_name = vm.name
                 if vm_name in hkvm_map:
                     del hkvm_map[vm_name]
-        for hkvm in av.hkvm_create:
+        for hkvm in action.hkvm_create:
             hkvm_map = self.hkvm_mapping_vm.get(hkvm, {})
-            for vm in av.vm_create(hkvm):
+            for vm in action.vm_create(hkvm):
                 hkvm_map[vm.name] = vm.args

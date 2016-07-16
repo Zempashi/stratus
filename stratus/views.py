@@ -24,5 +24,5 @@ def api_root(request, version):
 
 @api_view(['GET'])
 def run_worker(request):
-    Channel('create-vms').send(dict())
+    Channel(u'create-vms').send(dict())
     return Response({'message_send': True})

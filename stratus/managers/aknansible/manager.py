@@ -6,6 +6,7 @@ import logging
 import pprint
 import json
 import base64
+import traceback
 
 from django.utils import six
 from django.utils.six.moves import filter
@@ -86,33 +87,44 @@ class AknAnsibleManager(object):
             hkvm, created = self.HKVMClass.objects.get_or_create(
                 name=hkvm_name,
                 defaults={'virtual': False})
-            # VM List
-            hkvm_vars = variables['hostvars'][hkvm_name]
-            virsh_stdout = hkvm_vars['hkvm_list_vm']['stdout_lines']
-            vm_list = self._parse_virsh_list_stdout(virsh_stdout)
-            self.logger.debug(pprint.pformat((hkvm, vm_list)))
-            hkvm.update_vms(**vm_list)
-            # Memory update
-            hkvm.memory = hkvm_vars["ansible_memfree_mb"]
-            # Disk update
-            vgdisplay_stdout = hkvm_vars['hkvm_free_space']['stdout_lines']
-            hkvm.disk = self._parse_vgdisplay_stdout(vgdisplay_stdout)
-            # Load update
-            loadavg_content = hkvm_vars['hkvm_load']['content']
-            load_info = base64.b64decode(loadavg_content).split()
-            nb_cpu = hkvm_vars['ansible_processor_cores'] * \
-                     hkvm_vars['ansible_processor_count']
-            # fifteen minutes average load
-            # tempered by cpu count
-            hkvm.load = float(load_info[2]) / nb_cpu
-            self.logger.debug('HKVM {hkvm} has {mem} MB RAM and '
-                              '{disk} MB disk left. '
-                              'HKVM load is {load}'.format(hkvm=hkvm_name,
-                                                          mem=hkvm.memory,
-                                                          disk=hkvm.disk,
-                                                          load=hkvm.load))
+            try:
+                self._gather_hkvm_info(hkvm, variables)
+            except Exception as exc:
+                hkvm.last_status = 'FAILURE'
+                hkvm.error = traceback.format_exc()
+                self.logger.exception('HKVM \'%s\' tagged as FAILURE:', hkvm)
+            else:
+                hkvm.last_status = 'OK'
             # Update the status date for HKVM
             hkvm.save()
+
+    def _gather_hkvm_info(self, hkvm, variables):
+        hkvm_name = hkvm.name
+        # VM List
+        hkvm_vars = variables['hostvars'][hkvm_name]
+        virsh_stdout = hkvm_vars['hkvm_list_vm']['stdout_lines']
+        vm_list = self._parse_virsh_list_stdout(virsh_stdout)
+        self.logger.debug(pprint.pformat((hkvm, vm_list)))
+        hkvm.update_vms(**vm_list)
+        # Memory update
+        hkvm.memory = hkvm_vars["ansible_memfree_mb"]
+        # Disk update
+        vgdisplay_stdout = hkvm_vars['hkvm_free_space']['stdout_lines']
+        hkvm.disk = self._parse_vgdisplay_stdout(vgdisplay_stdout)
+        # Load update
+        loadavg_content = hkvm_vars['hkvm_load']['content']
+        load_info = base64.b64decode(loadavg_content).split()
+        nb_cpu = hkvm_vars['ansible_processor_cores'] * \
+                 hkvm_vars['ansible_processor_count']
+        # fifteen minutes average load
+        # tempered by cpu count
+        hkvm.load = float(load_info[2]) / nb_cpu
+        self.logger.debug('HKVM {hkvm} has {mem} MB RAM and '
+                          '{disk} MB disk left. '
+                          'HKVM load is {load}'.format(hkvm=hkvm_name,
+                                                       mem=hkvm.memory,
+                                                       disk=hkvm.disk,
+                                                       load=hkvm.load))
 
     def _list_vm_ansible(self):
         ah = self.AnsibleHelper(STRATUS_ANSIBLE_INVENTORY)

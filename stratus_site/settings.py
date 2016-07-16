@@ -120,11 +120,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-STRATUS_ANSIBLE_INVENTORY = "inventory.cfg"
-
-STRATUS_ANSIBLE_HKVM_CACHE_TIME = 0
-
-STRATUS_HKVM_MAPPING = "stratus_site.hkvm_mapping.mapping"
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -150,3 +145,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [],
 }
+
+STRATUS_ANSIBLE_INVENTORY = "inventory.cfg"
+
+STRATUS_ANSIBLE_HKVM_CACHE_TIME = 0
+
+STRATUS_HKVM_MAPPING = "stratus_site.hkvm_mapping.mapping"

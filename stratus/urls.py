@@ -14,6 +14,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 from django.conf.urls import include, url
+from django.apps import apps
+from django.utils.module_loading import import_string
+
 
 from . import views
 
@@ -33,3 +36,13 @@ urlpatterns = [
     url(r'^groups/?$', views.HKVMGroupList.as_view(), name='group-list'),
     url(r'^runworker/?$', views.run_worker),
 ]
+
+for app in apps.get_app_configs():
+    try:
+        stratus_include_url = app.stratus_include_url
+    except AttributeError:
+        pass
+    else:
+        if stratus_include_url:
+            url = import_string(app.name + '.urls.urlpatterns')
+            urlpatterns.extend(url)

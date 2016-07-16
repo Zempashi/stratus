@@ -3,7 +3,9 @@ from __future__ import unicode_literals
 import logging
 import operator
 import traceback
+import itertools
 from django.utils import six
+from django.utils.six.moves import filter
 from django.apps import apps
 from django.utils.module_loading import import_string
 
@@ -63,7 +65,7 @@ class HKVMAllocator(object):
             hkvms = [vm.hkvm]
         else:
             group_id = self.get_group(vm)
-            elif group_id is None:
+            if group_id is None:
                 # No allocation has to be made
                 pass
             elif group_id is mapping._all_:
@@ -81,22 +83,30 @@ class HKVMAllocator(object):
             self._allocate_to_hkvms(vm, hkvms)
         except Exception as exc:
             exc_string = traceback.format_exception_only(type(exc), exc)[0]
-            self.logger.debug('Cannot allocate VM \'{}\''
+            self.logger.warning('Cannot allocate VM \'{}\''
                 'because of: {}'.format(vm, exc_string), exc_info=True)
             vm.error = "Allocator/" + exc_string
             vm.save()
 
     def _allocate_to_hkvms(self, vm, hkvms):
-        iter_weight = self._iter_hkvm_weight(hkvms, vm)
+        # Check some relevant errors
+        iter_hkvm = iter(hkvms)
         try:
-            hkvm, weight = max(iter_weight, key=operator.itemgetter(1))
-        except ValueError:
-            raise ValueError('No hypervisor selected')
+            not_empty_hkvm_group = itertools.chain([next(iter_hkvm)],
+                                                   iter_hkvm)
+        except StopIteration:
+            raise ValueError('Empty group or selection')
+        try:
+            hkvm_ok = filter(lambda hkvm: hkvm.last_status == 'OK',
+                             not_empty_hkvm_group)
+            hkvm_status_ok = itertools.chain([next(hkvm_ok)], hkvm_ok)
+        except StopIteration:
+            raise ValueError('All HKVM in the selection are failing')
+        iter_weight = self._iter_hkvm_weight(hkvm_status_ok, vm)
+        hkvm, weight = max(iter_weight, key=operator.itemgetter(1))
         if weight <= 0:
             # All weight are below zero: no hkvm can fit
-            self.logger.warning('\'{vm}\' cannot be allocated'
-                                ' to any hypervisor'.format(vm=vm))
-            return
+            raise ValueError('No HKVM can fit the size of the VM')
         else:
             hkvm.memory -= vm.memory
             hkvm.disk -= vm.disk
