@@ -11,6 +11,7 @@ class HKVMSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = HKVM
+        read_only_fields = ('vm_set', 'disk', 'memory', 'load', 'error')
 
 
 class HKVMGroupSerializer(serializers.ModelSerializer):
