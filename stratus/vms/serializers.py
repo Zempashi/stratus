@@ -32,22 +32,28 @@ def _scientific_int(value):
 
 class VMSerializer(serializers.HyperlinkedModelSerializer):
 
-    name = serializers.CharField(read_only=True)
-    status = serializers.CharField(read_only=True)
-    created_date = serializers.CharField(read_only=True)
-    memory = serializers.IntegerField(read_only=True)
-    disk = serializers.IntegerField(read_only=True)
-    IP = serializers.IPAddressField(read_only=True)
-    error = serializers.CharField(read_only=True)
-
     class Meta:
         model = VM
+        read_only_fields = ('name', 'status', 'created_date',
+                            'memory', 'disk', 'IP', 'error')
         # validators = [
         #     validators.UniqueTogetherValidator(
         #         queryset=VM.objects.exclude(status='DELETED'),
         #         fields=('name'),
         #         message='VM with that name already exists')
         #     ]
+
+    def get_default_field_names(self, declared_fields, model_info):
+        '''
+           Include 'url' AND 'id' field with HyperlinkedModelSerializer.
+           By default this serializer use 'url' and get rid of 'id'.
+        '''
+        return (
+            [model_info.pk.name, self.url_field_name] +
+            list(declared_fields.keys()) +
+            list(model_info.fields.keys()) +
+            list(model_info.forward_relations.keys())
+	)
 
     def validate(self, data):
         same_obj = VM.objects.exclude(status='DELETED').filter(name=data['name'])
